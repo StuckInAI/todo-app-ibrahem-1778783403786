@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { Download, Trash2, Upload } from 'lucide-react';
+import { Download, Trash2, Upload, ChevronDown, ChevronRight } from 'lucide-react';
 import type { SplitterRatio, Tool, WorkflowStep } from '@/types';
 import { useNetworkDesign } from '@/hooks/useNetworkDesign';
 import { formatMeters } from '@/utils/geo';
@@ -32,6 +32,8 @@ export default function SidePanel({ design, selectedId, onSelect, onSetTool }: P
   } = design;
 
   const [search, setSearch] = useState('');
+  const [nodesExpanded, setNodesExpanded] = useState(true);
+  const [statsExpanded, setStatsExpanded] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const selectedNode = useMemo(
@@ -80,11 +82,11 @@ export default function SidePanel({ design, selectedId, onSelect, onSetTool }: P
     onSetTool(t as Tool);
   };
 
-  // Show workflow until the user has reached the design step (or always show it collapsed)
   const showWorkflow: WorkflowStep[] = ['address', 'telecom-center', 'service-area'];
 
   return (
     <aside className={styles.panel}>
+      {/* Project Header */}
       <section className={styles.section}>
         <input
           className={styles.projectName}
@@ -113,6 +115,7 @@ export default function SidePanel({ design, selectedId, onSelect, onSetTool }: P
         </div>
       </section>
 
+      {/* Workflow or location summary */}
       {showWorkflow.includes(workflowStep) ? (
         <section className={styles.section}>
           <h4 className={styles.sectionTitle}>Setup Workflow</h4>
@@ -121,30 +124,54 @@ export default function SidePanel({ design, selectedId, onSelect, onSetTool }: P
       ) : (
         <section className={styles.section}>
           <h4 className={styles.sectionTitle}>Project Location</h4>
-          {project.address && <div className={styles.coords}>📍 {project.address}</div>}
-          {project.telecomCenter && (
-            <div className={styles.coords}>🏢 {project.telecomCenter.name}</div>
+          {project.address && (
+            <div className={styles.locationRow}>
+              <span className={styles.locationIcon}>📍</span>
+              <span className={styles.locationText}>{project.address}</span>
+            </div>
           )}
-          <div className={styles.coords}>📐 {project.areas.length} service area(s)</div>
+          {project.telecomCenter && (
+            <div className={styles.locationRow}>
+              <span className={styles.locationIcon}>🏢</span>
+              <span className={styles.locationText}>{project.telecomCenter.name}</span>
+              <span className={styles.locationCoords}>
+                {project.telecomCenter.position.lat.toFixed(4)}, {project.telecomCenter.position.lng.toFixed(4)}
+              </span>
+            </div>
+          )}
+          <div className={styles.locationRow}>
+            <span className={styles.locationIcon}>📐</span>
+            <span className={styles.locationText}>{project.areas.length} service area{project.areas.length !== 1 ? 's' : ''}</span>
+          </div>
         </section>
       )}
 
-      <LossBudgetPanel design={design} />
-
+      {/* Loss Budget */}
       <section className={styles.section}>
-        <h4 className={styles.sectionTitle}>Network Statistics</h4>
-        <div className={styles.stats}>
-          <Stat label="OLTs" value={stats.byType.olt} />
-          <Stat label="Splitters" value={stats.byType.splitter} />
-          <Stat label="Cabinets" value={stats.byType.cabinet} />
-          <Stat label="Closures" value={stats.byType.closure} />
-          <Stat label="Poles" value={stats.byType.pole} />
-          <Stat label="ONTs" value={stats.byType.ont} />
-          <Stat label="Cables" value={stats.cableCount} />
-          <Stat label="Total length" value={formatMeters(stats.totalLength)} />
-        </div>
+        <LossBudgetPanel design={design} />
       </section>
 
+      {/* Stats */}
+      <section className={styles.section}>
+        <button className={styles.collapsibleHeader} onClick={() => setStatsExpanded((v) => !v)}>
+          <h4 className={styles.sectionTitle}>Network Statistics</h4>
+          {statsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        </button>
+        {statsExpanded && (
+          <div className={styles.stats}>
+            <Stat label="OLTs" value={stats.byType.olt} />
+            <Stat label="Splitters" value={stats.byType.splitter} />
+            <Stat label="Cabinets" value={stats.byType.cabinet} />
+            <Stat label="Closures" value={stats.byType.closure} />
+            <Stat label="Poles" value={stats.byType.pole} />
+            <Stat label="ONTs" value={stats.byType.ont} />
+            <Stat label="Cables" value={stats.cableCount} />
+            <Stat label="Total length" value={formatMeters(stats.totalLength)} />
+          </div>
+        )}
+      </section>
+
+      {/* Selected node inspector */}
       {selectedNode && (
         <section className={styles.section}>
           <h4 className={styles.sectionTitle}>Selected · {selectedNode.type.toUpperCase()}</h4>
@@ -210,6 +237,7 @@ export default function SidePanel({ design, selectedId, onSelect, onSetTool }: P
         </section>
       )}
 
+      {/* Selected cable inspector */}
       {selectedCable && (
         <section className={styles.section}>
           <h4 className={styles.sectionTitle}>Selected · CABLE</h4>
@@ -269,6 +297,7 @@ export default function SidePanel({ design, selectedId, onSelect, onSetTool }: P
         </section>
       )}
 
+      {/* Selected area inspector */}
       {selectedArea && (
         <section className={styles.section}>
           <h4 className={styles.sectionTitle}>Selected · SERVICE AREA</h4>
@@ -286,32 +315,41 @@ export default function SidePanel({ design, selectedId, onSelect, onSetTool }: P
         </section>
       )}
 
+      {/* Node list */}
       <section className={styles.section}>
-        <h4 className={styles.sectionTitle}>Nodes ({project.nodes.length})</h4>
-        <input
-          className={styles.input}
-          placeholder="Search nodes…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <ul className={styles.list}>
-          {filteredNodes.map((n) => (
-            <li
-              key={n.id}
-              className={`${styles.listItem} ${selectedId === n.id ? styles.listItemActive : ''}`}
-              onClick={() => {
-                onSelect(n.id);
-                setMapView(n.position, Math.max(project.mapZoom, 17));
-              }}
-            >
-              <span className={styles.nodeBadge} data-type={n.type}>{n.type.slice(0, 3).toUpperCase()}</span>
-              <span>{n.name}</span>
-            </li>
-          ))}
-          {filteredNodes.length === 0 && <li className={styles.empty}>No nodes</li>}
-        </ul>
+        <button className={styles.collapsibleHeader} onClick={() => setNodesExpanded((v) => !v)}>
+          <h4 className={styles.sectionTitle}>Nodes ({project.nodes.length})</h4>
+          {nodesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        </button>
+        {nodesExpanded && (
+          <>
+            <input
+              className={styles.input}
+              placeholder="Search nodes…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <ul className={styles.list}>
+              {filteredNodes.map((n) => (
+                <li
+                  key={n.id}
+                  className={`${styles.listItem} ${selectedId === n.id ? styles.listItemActive : ''}`}
+                  onClick={() => {
+                    onSelect(n.id);
+                    setMapView(n.position, Math.max(project.mapZoom, 17));
+                  }}
+                >
+                  <span className={styles.nodeBadge} data-type={n.type}>{n.type.slice(0, 3).toUpperCase()}</span>
+                  <span>{n.name}</span>
+                </li>
+              ))}
+              {filteredNodes.length === 0 && <li className={styles.empty}>No nodes</li>}
+            </ul>
+          </>
+        )}
       </section>
 
+      {/* Danger zone */}
       <section className={styles.section}>
         <button
           className={styles.dangerBtn}

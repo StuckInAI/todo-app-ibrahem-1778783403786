@@ -3,7 +3,7 @@ import type { WorkflowStep } from '@/types';
 import styles from './WorkflowStepper.module.css';
 
 type Props = {
-  current: WorkflowStep;
+  currentStep: WorkflowStep;
   onJump?: (step: WorkflowStep) => void;
 };
 
@@ -14,8 +14,8 @@ const STEPS: { id: WorkflowStep; label: string; icon: React.ComponentType<{ size
   { id: 'design', label: '4. Design Network', icon: Network },
 ];
 
-export default function WorkflowStepper({ current, onJump }: Props) {
-  const currentIndex = STEPS.findIndex((s) => s.id === current);
+export default function WorkflowStepper({ currentStep, onJump }: Props) {
+  const currentIndex = STEPS.findIndex((s) => s.id === currentStep);
   return (
     <div className={styles.stepper}>
       {STEPS.map((s, i) => {

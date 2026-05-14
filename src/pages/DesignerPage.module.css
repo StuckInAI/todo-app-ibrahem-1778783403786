@@ -4,22 +4,25 @@
   height: 100vh;
   width: 100vw;
   background: var(--bg-primary);
+  overflow: hidden;
 }
 
-.header {
+.topBar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: var(--space-3) var(--space-5);
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-4);
   background: var(--bg-card);
   border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
+  min-height: 56px;
 }
 
 .brand {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  flex-shrink: 0;
 }
 
 .logo {
@@ -32,47 +35,67 @@
   align-items: center;
   justify-content: center;
   box-shadow: 0 4px 12px rgba(99,102,241,0.4);
+  flex-shrink: 0;
 }
 
-.title {
-  font-size: 1.05rem;
+.brandTitle {
+  font-size: 0.95rem;
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.3px;
+  white-space: nowrap;
 }
 
-.subtitle {
-  font-size: 0.75rem;
+.brandSub {
+  font-size: 0.7rem;
   color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.topBarRight {
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .legend {
   display: flex;
-  gap: var(--space-4);
+  align-items: center;
+  gap: var(--space-3);
 }
 
 .legendItem {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: var(--text-secondary);
+  white-space: nowrap;
 }
 
-.legendDot {
-  width: 14px;
+.legendLine {
+  display: inline-block;
+  width: 20px;
   height: 3px;
-  border-radius: var(--radius-full);
+  border-radius: 2px;
 }
 
-.workspace {
+.body {
   flex: 1;
   display: flex;
   min-height: 0;
+  overflow: hidden;
+}
+
+.toolbarWrap {
+  flex-shrink: 0;
+  overflow-y: auto;
+  border-right: 1px solid var(--border-color);
+  background: var(--bg-card);
 }
 
 .mapWrap {
   flex: 1;
   position: relative;
   min-width: 0;
+  min-height: 0;
 }

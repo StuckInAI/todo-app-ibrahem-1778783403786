@@ -1,5 +1,4 @@
 import type { NetworkNode } from '@/types';
-import { Antenna, Box, GitBranch, Home, Radio, Server } from 'lucide-react';
 import styles from './NodeMarker.module.css';
 
 type Props = {
@@ -12,37 +11,44 @@ type Props = {
   onMouseDown: (e: React.MouseEvent) => void;
 };
 
-const ICONS: Record<NetworkNode['type'], React.ComponentType<{ size?: number }>> = {
-  olt: Server,
-  splitter: GitBranch,
-  cabinet: Box,
-  closure: Radio,
-  pole: Antenna,
-  ont: Home,
+const NODE_ICONS: Record<string, string> = {
+  olt: '🏭',
+  splitter: '🔀',
+  cabinet: '🗄️',
+  closure: '🔵',
+  pole: '🪵',
+  ont: '🏠',
 };
 
-const COLORS: Record<NetworkNode['type'], string> = {
-  olt: '#dc2626',
-  splitter: '#f59e0b',
-  cabinet: '#0ea5e9',
-  closure: '#8b5cf6',
-  pole: '#64748b',
-  ont: '#10b981',
+const NODE_COLORS: Record<string, string> = {
+  olt: '#7c3aed',
+  splitter: '#d97706',
+  cabinet: '#db2777',
+  closure: '#2563eb',
+  pole: '#6b7280',
+  ont: '#059669',
 };
 
 export default function NodeMarker({ node, x, y, selected, cableSource, onClick, onMouseDown }: Props) {
-  const Icon = ICONS[node.type];
-  const color = COLORS[node.type];
+  const color = NODE_COLORS[node.type] ?? '#6366f1';
+  const icon = NODE_ICONS[node.type] ?? '📍';
+
   return (
     <div
       className={`${styles.marker} ${selected ? styles.selected : ''} ${cableSource ? styles.cableSource : ''}`}
-      style={{ left: x, top: y, background: color }}
+      style={{
+        left: x,
+        top: y,
+        '--node-color': color,
+      } as React.CSSProperties}
       onClick={onClick}
       onMouseDown={onMouseDown}
-      title={node.name}
+      title={`${node.name} (${node.type})`}
     >
-      <Icon size={16} />
-      <span className={styles.label}>{node.name}</span>
+      <div className={styles.pin}>
+        <span className={styles.icon}>{icon}</span>
+      </div>
+      <div className={styles.label}>{node.name}</div>
     </div>
   );
 }

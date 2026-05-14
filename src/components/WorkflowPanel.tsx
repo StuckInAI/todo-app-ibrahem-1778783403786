@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Building2, Hexagon, MapPin, Search } from 'lucide-react';
+import { Building2, Hexagon, MapPin, Search, Navigation } from 'lucide-react';
 import type { LatLng, WorkflowStep } from '@/types';
 import { useNetworkDesign } from '@/hooks/useNetworkDesign';
 import styles from './WorkflowPanel.module.css';
@@ -37,12 +37,12 @@ export default function WorkflowPanel({ design, step, onSetTool }: Props) {
     try {
       const r = await geocode(addressInput);
       if (!r) {
-        setError('Address not found');
+        setError('Address not found. Try a more specific address or postcode.');
       } else {
         setAddress(addressInput, { lat: r.lat, lng: r.lng });
       }
     } catch {
-      setError('Lookup failed');
+      setError('Geocoding lookup failed. Check your internet connection.');
     } finally {
       setLoading(false);
     }
@@ -55,14 +55,14 @@ export default function WorkflowPanel({ design, step, onSetTool }: Props) {
     try {
       const r = await geocode(tcAddrInput);
       if (!r) {
-        setError('Telecom center address not found');
+        setError('Telecom center address not found.');
       } else {
         const pos: LatLng = { lat: r.lat, lng: r.lng };
         setTelecomCenter(tcInput.trim() || 'Central Office', pos);
         design.setMapView(pos, 16);
       }
     } catch {
-      setError('Lookup failed');
+      setError('Geocoding lookup failed.');
     } finally {
       setLoading(false);
     }
@@ -70,14 +70,23 @@ export default function WorkflowPanel({ design, step, onSetTool }: Props) {
 
   return (
     <div className={styles.panel}>
-      {/* Step 1 — Address */}
-      <div className={`${styles.card} ${step === 'address' ? styles.cardActive : ''}`}>
+
+      {/* ── Step 1: Address ── */}
+      <div className={`${styles.card} ${
+        step === 'address' ? styles.cardActive : ''
+      } ${
+        step !== 'address' && project.addressLocation ? styles.cardComplete : ''
+      }`}>
         <div className={styles.cardHeader}>
-          <MapPin size={16} />
-          <h3>Step 1 · Customer / Project Address</h3>
+          <span className={`${styles.stepBadge} ${
+            project.addressLocation ? styles.stepBadgeDone : step === 'address' ? styles.stepBadgeActive : ''
+          }`}>1</span>
+          <MapPin size={15} />
+          <h3>Customer / Project Address</h3>
         </div>
         <p className={styles.help}>
-          Enter the street address or postcode of the area you want to serve. The map will jump there.
+          Enter the street address or postcode of the area you want to serve.
+          The map will centre on the location.
         </p>
         <div className={styles.row}>
           <input
@@ -86,51 +95,61 @@ export default function WorkflowPanel({ design, step, onSetTool }: Props) {
             value={addressInput}
             onChange={(e) => setAddressInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleAddressSubmit()}
+            disabled={loading}
           />
           <button className={styles.primaryBtn} onClick={handleAddressSubmit} disabled={loading}>
-            <Search size={14} /> Find
+            {loading ? '…' : <><Search size={13} /> Find</>}
           </button>
         </div>
         {project.address && project.addressLocation && (
           <div className={styles.ok}>
-            ✓ {project.address} ({project.addressLocation.lat.toFixed(4)}, {project.addressLocation.lng.toFixed(4)})
+            ✓ Centred on {project.addressLocation.lat.toFixed(4)}, {project.addressLocation.lng.toFixed(4)}
           </div>
         )}
       </div>
 
-      {/* Step 2 — Telecom Center */}
-      <div
-        className={`${styles.card} ${step === 'telecom-center' ? styles.cardActive : ''} ${
-          !project.addressLocation ? styles.cardDisabled : ''
-        }`}
-      >
+      {/* ── Step 2: Telecom Center ── */}
+      <div className={`${styles.card} ${
+        step === 'telecom-center' ? styles.cardActive : ''
+      } ${
+        project.telecomCenter ? styles.cardComplete : ''
+      } ${
+        !project.addressLocation ? styles.cardDisabled : ''
+      }`}>
         <div className={styles.cardHeader}>
-          <Building2 size={16} />
-          <h3>Step 2 · Telecom Center / Data Center</h3>
+          <span className={`${styles.stepBadge} ${
+            project.telecomCenter ? styles.stepBadgeDone : step === 'telecom-center' ? styles.stepBadgeActive : ''
+          }`}>2</span>
+          <Building2 size={15} />
+          <h3>Telecom Center / OLT Location</h3>
         </div>
         <p className={styles.help}>
-          Identify the head-end where the OLT is installed. Search by address, or pick a point on the map.
+          Identify the head-end where the OLT is installed — the source of your
+          fiber loss budget calculation. Search by address <em>or</em> click
+          directly on the map.
         </p>
         <input
           className={styles.input}
           placeholder="Name (e.g. Central Office #4)"
           value={tcInput}
           onChange={(e) => setTcInput(e.target.value)}
+          disabled={!project.addressLocation}
         />
         <div className={styles.row}>
           <input
             className={styles.input}
-            placeholder="Telecom center address"
+            placeholder="Telecom center address (optional)"
             value={tcAddrInput}
             onChange={(e) => setTcAddrInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleTcByAddress()}
+            disabled={loading || !project.addressLocation}
           />
           <button
             className={styles.primaryBtn}
             onClick={handleTcByAddress}
-            disabled={loading || !project.addressLocation}
+            disabled={loading || !project.addressLocation || !tcAddrInput.trim()}
           >
-            <Search size={14} /> Set
+            {loading ? '…' : <><Search size={13} /> Set</>}
           </button>
         </div>
         <button
@@ -138,57 +157,64 @@ export default function WorkflowPanel({ design, step, onSetTool }: Props) {
           onClick={() => onSetTool('place-telecom-center')}
           disabled={!project.addressLocation}
         >
-          📍 Pick on map
+          <Navigation size={13} /> Pick on map
         </button>
         {project.telecomCenter && (
           <div className={styles.ok}>
-            ✓ {project.telecomCenter.name} ({project.telecomCenter.position.lat.toFixed(4)},{' '}
-            {project.telecomCenter.position.lng.toFixed(4)})
+            ✓ {project.telecomCenter.name} — {project.telecomCenter.position.lat.toFixed(4)},{' '}
+            {project.telecomCenter.position.lng.toFixed(4)}
           </div>
         )}
       </div>
 
-      {/* Step 3 — Service Area */}
-      <div
-        className={`${styles.card} ${step === 'service-area' ? styles.cardActive : ''} ${
-          !project.telecomCenter ? styles.cardDisabled : ''
-        }`}
-      >
+      {/* ── Step 3: Service Area ── */}
+      <div className={`${styles.card} ${
+        step === 'service-area' ? styles.cardActive : ''
+      } ${
+        project.areas.length > 0 ? styles.cardComplete : ''
+      } ${
+        !project.telecomCenter ? styles.cardDisabled : ''
+      }`}>
         <div className={styles.cardHeader}>
-          <Hexagon size={16} />
-          <h3>Step 3 · Define Service Area</h3>
+          <span className={`${styles.stepBadge} ${
+            project.areas.length > 0 ? styles.stepBadgeDone : step === 'service-area' ? styles.stepBadgeActive : ''
+          }`}>3</span>
+          <Hexagon size={15} />
+          <h3>Define Service Area</h3>
         </div>
         <p className={styles.help}>
-          Draw a polygon on the map to define the area you want to design the FTTH network for. Click to add
-          vertices, press <kbd>Enter</kbd> to finish.
+          Draw a polygon on the map to define the geographic boundary of your
+          FTTH design. Click to add vertices, press{' '}
+          <kbd>Enter</kbd> to close the shape.
         </p>
         <button
           className={styles.primaryBtn}
           onClick={() => onSetTool('draw-area')}
           disabled={!project.telecomCenter}
+          style={{ alignSelf: 'flex-start' }}
         >
-          <Hexagon size={14} /> Draw service area
+          <Hexagon size={13} /> Draw service area
         </button>
         {project.areas.length > 0 && (
           <div className={styles.ok}>
-            ✓ {project.areas.length} service area{project.areas.length === 1 ? '' : 's'} defined
+            ✓ {project.areas.length} area{project.areas.length > 1 ? 's' : ''} defined
           </div>
         )}
       </div>
 
-      {/* Step 4 — Design */}
+      {/* ── Step 4: Design (only shown when reached) ── */}
       {step === 'design' && (
         <div className={`${styles.card} ${styles.cardActive}`}>
           <div className={styles.cardHeader}>
-            <h3>Step 4 · Design the Network</h3>
+            <span className={`${styles.stepBadge} ${styles.stepBadgeActive}`}>4</span>
+            <h3>Design the Network</h3>
           </div>
           <p className={styles.help}>
-            Place splitters, closures, poles and ONTs inside the service area, then draw fiber cables between
-            them. The loss budget panel below will recompute in real time.
+            Use the toolbar on the left to place equipment (OLT, Splitters,
+            Cabinets, Closures, Poles, ONTs) and draw fiber cables between them.
+            The <strong>Loss Budget</strong> panel updates automatically as you
+            build the network.
           </p>
-          <button className={styles.secondaryBtn} onClick={() => onSetTool('select')}>
-            Switch to design mode
-          </button>
         </div>
       )}
 

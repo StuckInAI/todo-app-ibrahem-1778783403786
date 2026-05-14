@@ -5,13 +5,14 @@
 }
 
 .card {
-  background: var(--bg-primary);
+  background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   padding: var(--space-3);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .cardActive {
@@ -19,26 +20,57 @@
   box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
 }
 
+.cardComplete {
+  border-color: #10b981;
+  box-shadow: 0 0 0 2px rgba(16,185,129,0.1);
+}
+
 .cardDisabled {
-  opacity: 0.55;
+  opacity: 0.45;
+  pointer-events: none;
 }
 
 .cardHeader {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   color: var(--text-primary);
 }
 
 .cardHeader h3 {
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 700;
+  flex: 1;
+}
+
+.stepBadge {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.stepBadgeActive {
+  background: var(--accent);
+  color: #fff;
+}
+
+.stepBadgeDone {
+  background: #10b981;
+  color: #fff;
 }
 
 .help {
   font-size: 0.75rem;
   color: var(--text-secondary);
-  line-height: 1.4;
+  line-height: 1.5;
 }
 
 .row {
@@ -48,12 +80,14 @@
 
 .input {
   flex: 1;
-  background: var(--bg-card);
+  background: var(--bg-primary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   padding: 6px 10px;
   font-size: 0.82rem;
   color: var(--text-primary);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .input:focus {
@@ -61,10 +95,15 @@
   border-color: var(--accent);
 }
 
+.input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .primaryBtn {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   background: var(--accent);
   color: #fff;
   border: none;
@@ -72,6 +111,8 @@
   padding: 6px 12px;
   font-size: 0.8rem;
   font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .primaryBtn:hover:not(:disabled) {
@@ -84,12 +125,16 @@
 }
 
 .secondaryBtn {
-  background: var(--bg-card);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--bg-primary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   padding: 6px 10px;
   font-size: 0.8rem;
   color: var(--text-primary);
+  font-weight: 500;
 }
 
 .secondaryBtn:hover:not(:disabled) {
@@ -102,16 +147,21 @@
 }
 
 .ok {
-  font-size: 0.75rem;
+  font-size: 0.74rem;
   color: #047857;
   background: #d1fae5;
   padding: 4px 8px;
   border-radius: var(--radius-sm);
+  border: 1px solid #a7f3d0;
 }
 
 .error {
   font-size: 0.78rem;
-  color: var(--color-danger);
+  color: #b91c1c;
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
 }
 
 kbd {

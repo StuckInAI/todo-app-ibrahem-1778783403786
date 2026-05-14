@@ -1,49 +1,64 @@
 .toolbar {
+  width: 148px;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-4);
+  padding: var(--space-2);
+  gap: 2px;
   background: var(--bg-card);
-  border-right: 1px solid var(--border-color);
-  width: 220px;
-  overflow-y: auto;
+}
+
+.toolbarHeader {
+  padding: var(--space-1) var(--space-2) var(--space-2);
+}
+
+.toolbarTitle {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+}
+
+.sectionLabel {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  padding: var(--space-2) var(--space-2) var(--space-1);
+  margin-top: var(--space-1);
 }
 
 .section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-}
-
-.sectionTitle {
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-secondary);
-  margin-bottom: var(--space-1);
+  gap: 2px;
 }
 
 .toolBtn {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: 8px 10px;
-  border: 1px solid transparent;
-  background: transparent;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
   border-radius: var(--radius-md);
-  color: var(--text-primary);
-  font-size: 0.85rem;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 500;
   text-align: left;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
 }
 
 .toolBtn:hover {
   background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .toolBtn.active {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent-hover);
+  background: rgba(99,102,241,0.12);
+  border-color: rgba(99,102,241,0.35);
+  color: var(--accent);
+  font-weight: 700;
 }
