@@ -1,10 +1,10 @@
 import { useState } from 'react';
+import type { Tool } from '@/types';
+import { useNetworkDesign } from '@/hooks/useNetworkDesign';
 import MapCanvas from '@/components/MapCanvas';
 import SidePanel from '@/components/SidePanel';
 import Toolbar from '@/components/Toolbar';
 import WorkflowStepper from '@/components/WorkflowStepper';
-import { useNetworkDesign } from '@/hooks/useNetworkDesign';
-import type { Tool } from '@/types';
 import styles from './DesignerPage.module.css';
 
 export default function DesignerPage() {
@@ -12,32 +12,27 @@ export default function DesignerPage() {
   const [tool, setTool] = useState<Tool>('select');
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const handleToolHandled = () => {
-    setTool('select');
-  };
-
   return (
     <div className={styles.page}>
       <header className={styles.header}>
         <div className={styles.brand}>
-          <span className={styles.logo}>🛰️</span>
+          <span className={styles.logo}>🌐</span>
           <div>
-            <div className={styles.title}>FTTH Designer</div>
-            <div className={styles.subtitle}>Plan your fiber-to-the-home network</div>
+            <h1 className={styles.title}>FTTH Network Designer</h1>
+            <p className={styles.subtitle}>Plan fiber networks on a real map</p>
           </div>
         </div>
-        <WorkflowStepper step={design.workflowStep} />
+        <WorkflowStepper />
       </header>
-
       <div className={styles.body}>
-        <Toolbar tool={tool} onChange={setTool} />
-        <main className={styles.canvas}>
+        <Toolbar tool={tool} onSetTool={setTool} />
+        <main className={styles.main}>
           <MapCanvas
             design={design}
             tool={tool}
             selectedId={selectedId}
             onSelect={setSelectedId}
-            onToolHandled={handleToolHandled}
+            onToolHandled={() => setTool('select')}
           />
         </main>
         <SidePanel
