@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import MapCanvas from '@/components/MapCanvas';
-import SidePanel from '@/components/SidePanel';
-import Toolbar from '@/components/Toolbar';
-import WorkflowStepper from '@/components/WorkflowStepper';
-import { useNetworkDesign } from '@/hooks/useNetworkDesign';
 import type { Tool } from '@/types';
+import { useNetworkDesign } from '@/hooks/useNetworkDesign';
+import MapCanvas from '@/components/MapCanvas';
+import Toolbar from '@/components/Toolbar';
+import SidePanel from '@/components/SidePanel';
+import WorkflowStepper from '@/components/WorkflowStepper';
 import styles from './DesignerPage.module.css';
 
 export default function DesignerPage() {
@@ -12,27 +12,25 @@ export default function DesignerPage() {
   const [tool, setTool] = useState<Tool>('select');
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  const handleToolHandled = () => {
+    setTool('select');
+  };
+
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <div className={styles.brand}>
-          <span className={styles.logo}>🛰️</span>
-          <div>
-            <h1 className={styles.title}>FTTH Designer</h1>
-            <p className={styles.subtitle}>Plan fiber-to-the-home networks on a real map</p>
-          </div>
-        </div>
-        <WorkflowStepper current={design.workflowStep} />
+        <h1 className={styles.title}>FTTH Network Designer</h1>
+        <WorkflowStepper step={design.workflowStep} />
       </header>
       <div className={styles.body}>
-        <Toolbar tool={tool} setTool={setTool} />
-        <main className={styles.canvasArea}>
+        <Toolbar tool={tool} onToolChange={setTool} />
+        <main className={styles.main}>
           <MapCanvas
             design={design}
             tool={tool}
             selectedId={selectedId}
             onSelect={setSelectedId}
-            onToolHandled={() => setTool('select')}
+            onToolHandled={handleToolHandled}
           />
         </main>
         <SidePanel
