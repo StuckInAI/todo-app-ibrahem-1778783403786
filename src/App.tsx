@@ -1,12 +1,12 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import TodoPage from '@/pages/TodoPage';
+import DesignerPage from '@/pages/DesignerPage';
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<TodoPage />} />
-        <Route path="*" element={<TodoPage />} />
+        <Route path="/" element={<DesignerPage />} />
+        <Route path="*" element={<DesignerPage />} />
       </Routes>
     </BrowserRouter>
   );
