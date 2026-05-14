@@ -39,7 +39,9 @@ export default function WorkflowPanel({ design, step, onSetTool }: Props) {
       if (!r) {
         setError('Address not found. Try a more specific address or postcode.');
       } else {
-        setAddress(addressInput, { lat: r.lat, lng: r.lng });
+        const loc: LatLng = { lat: r.lat, lng: r.lng };
+        // setAddress already updates mapCenter + mapZoom inside the hook
+        setAddress(addressInput, loc);
       }
     } catch {
       setError('Geocoding lookup failed. Check your internet connection.');
@@ -58,8 +60,8 @@ export default function WorkflowPanel({ design, step, onSetTool }: Props) {
         setError('Telecom center address not found.');
       } else {
         const pos: LatLng = { lat: r.lat, lng: r.lng };
+        // setTelecomCenter now also updates mapCenter inside the hook
         setTelecomCenter(tcInput.trim() || 'Central Office', pos);
-        design.setMapView(pos, 16);
       }
     } catch {
       setError('Geocoding lookup failed.');

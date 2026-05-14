@@ -180,10 +180,12 @@ export function useNetworkDesign() {
         ...p,
         address,
         addressLocation: location ?? p.addressLocation,
+        // Immediately update the map center too so the canvas re-renders
+        mapCenter: location ?? p.mapCenter,
+        mapZoom: location ? 16 : p.mapZoom,
       }));
-      if (location) setMapView(location, 17);
     },
-    [setProject, setMapView]
+    [setProject]
   );
 
   const setTelecomCenter = useCallback(
@@ -209,6 +211,8 @@ export function useNetworkDesign() {
         return {
           ...p,
           telecomCenter: { name, position },
+          mapCenter: position,
+          mapZoom: 16,
           nodes,
         };
       });
