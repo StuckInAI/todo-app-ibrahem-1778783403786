@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Cable as CableIcon } from 'lucide-react';
-import { useNetworkDesign } from '@/hooks/useNetworkDesign';
 import MapCanvas from '@/components/MapCanvas';
-import Toolbar from '@/components/Toolbar';
 import SidePanel from '@/components/SidePanel';
+import Toolbar from '@/components/Toolbar';
+import WorkflowStepper from '@/components/WorkflowStepper';
+import { useNetworkDesign } from '@/hooks/useNetworkDesign';
 import type { Tool } from '@/types';
 import styles from './DesignerPage.module.css';
 
@@ -12,44 +12,41 @@ export default function DesignerPage() {
   const [tool, setTool] = useState<Tool>('select');
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  const handleToolHandled = () => {
+    setTool('select');
+  };
+
   return (
     <div className={styles.page}>
       <header className={styles.header}>
         <div className={styles.brand}>
-          <span className={styles.logo}><CableIcon size={18} /></span>
+          <span className={styles.logo}>🛰️</span>
           <div>
-            <h1 className={styles.title}>FTTH Network Designer</h1>
-            <p className={styles.subtitle}>Plan passive fiber networks on a real map</p>
+            <div className={styles.title}>FTTH Designer</div>
+            <div className={styles.subtitle}>Plan your fiber-to-the-home network</div>
           </div>
         </div>
-        <div className={styles.legend}>
-          <LegendDot color="#ef4444" label="Feeder" />
-          <LegendDot color="#f59e0b" label="Distribution" />
-          <LegendDot color="#10b981" label="Drop" />
-        </div>
+        <WorkflowStepper step={design.workflowStep} />
       </header>
-      <div className={styles.workspace}>
+
+      <div className={styles.body}>
         <Toolbar tool={tool} onChange={setTool} />
-        <div className={styles.mapWrap}>
+        <main className={styles.canvas}>
           <MapCanvas
             design={design}
             tool={tool}
             selectedId={selectedId}
             onSelect={setSelectedId}
-            onToolHandled={() => setTool('select')}
+            onToolHandled={handleToolHandled}
           />
-        </div>
-        <SidePanel design={design} selectedId={selectedId} onSelect={setSelectedId} />
+        </main>
+        <SidePanel
+          design={design}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          onSetTool={setTool}
+        />
       </div>
-    </div>
-  );
-}
-
-function LegendDot({ color, label }: { color: string; label: string }) {
-  return (
-    <div className={styles.legendItem}>
-      <span className={styles.legendDot} style={{ background: color }} />
-      <span>{label}</span>
     </div>
   );
 }
