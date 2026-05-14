@@ -1,11 +1,27 @@
-import { useMemo, useRef, useState } from 'react';
-import { Download, Trash2, Upload, ChevronDown, ChevronRight } from 'lucide-react';
-import type { SplitterRatio, Tool, WorkflowStep } from '@/types';
+import { useState } from 'react';
+import {
+  Settings,
+  List,
+  Radio,
+  ChevronDown,
+  ChevronUp,
+  Trash2,
+  Edit3,
+  Check,
+  X,
+  AlertTriangle,
+  CheckCircle,
+  Eye,
+} from 'lucide-react';
+import type { Tool, NetworkNode, FiberCable, ServiceArea } from '@/types';
 import { useNetworkDesign } from '@/hooks/useNetworkDesign';
-import { formatMeters } from '@/utils/geo';
 import WorkflowPanel from '@/components/WorkflowPanel';
 import LossBudgetPanel from '@/components/LossBudgetPanel';
+import PreviewModal from '@/components/PreviewModal';
+import { formatMeters } from '@/utils/geo';
 import styles from './SidePanel.module.css';
+
+type Tab = 'workflow' | 'elements' | 'loss';
 
 type Props = {
   design: ReturnType<typeof useNetworkDesign>;
@@ -15,360 +31,276 @@ type Props = {
 };
 
 export default function SidePanel({ design, selectedId, onSelect, onSetTool }: Props) {
-  const {
-    project,
-    stats,
-    workflowStep,
-    renameProject,
-    updateNode,
-    deleteNode,
-    updateCable,
-    deleteCable,
-    deleteArea,
-    setMapView,
-    clearAll,
-    exportJSON,
-    importJSON,
-  } = design;
+  const [tab, setTab] = useState<Tab>('workflow');
+  const [showPreview, setShowPreview] = useState(false);
 
-  const [search, setSearch] = useState('');
-  const [nodesExpanded, setNodesExpanded] = useState(true);
-  const [statsExpanded, setStatsExpanded] = useState(true);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { project, stats, lossReports, deleteNode, deleteCable, deleteArea, updateNode, updateCable } = design;
 
-  const selectedNode = useMemo(
-    () => project.nodes.find((n) => n.id === selectedId) || null,
-    [project.nodes, selectedId]
-  );
-  const selectedCable = useMemo(
-    () => project.cables.find((c) => c.id === selectedId) || null,
-    [project.cables, selectedId]
-  );
-  const selectedArea = useMemo(
-    () => project.areas.find((a) => a.id === selectedId) || null,
-    [project.areas, selectedId]
-  );
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
 
-  const filteredNodes = useMemo(() => {
-    const q = search.toLowerCase();
-    return project.nodes.filter(
-      (n) => !q || n.name.toLowerCase().includes(q) || n.type.includes(q)
-    );
-  }, [project.nodes, search]);
-
-  const handleExport = () => {
-    const blob = new Blob([exportJSON()], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${project.name.replace(/\s+/g, '_')}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const startEdit = (id: string, currentName: string) => {
+    setEditingId(id);
+    setEditName(currentName);
   };
-
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const ok = importJSON(String(reader.result));
-      if (!ok) alert('Invalid project file');
-    };
-    reader.readAsText(file);
-    e.target.value = '';
+  const commitEdit = (type: 'node' | 'cable') => {
+    if (!editingId) return;
+    if (type === 'node') updateNode(editingId, { name: editName });
+    else updateCable(editingId, { cableType: undefined } as never);
+    setEditingId(null);
   };
+  const cancelEdit = () => setEditingId(null);
 
-  const handleWorkflowTool = (t: 'place-telecom-center' | 'draw-area' | 'select') => {
-    onSetTool(t as Tool);
-  };
-
-  const showWorkflow: WorkflowStep[] = ['address', 'telecom-center', 'service-area'];
+  const feasibleCount = lossReports.filter((r) => r.feasible).length;
+  const totalOnts = lossReports.length;
 
   return (
-    <aside className={styles.panel}>
-      {/* Project Header */}
-      <section className={styles.section}>
-        <input
-          className={styles.projectName}
-          value={project.name}
-          onChange={(e) => renameProject(e.target.value)}
-          placeholder="Project name"
-        />
-        <div className={styles.actionsRow}>
-          <button className={styles.iconBtn} onClick={handleExport} title="Export project as JSON">
-            <Download size={14} /> Export
+    <>
+      <div className={styles.panel}>
+        {/* Tabs */}
+        <div className={styles.tabs}>
+          <button
+            className={`${styles.tab} ${tab === 'workflow' ? styles.tabActive : ''}`}
+            onClick={() => setTab('workflow')}
+          >
+            Steps
           </button>
           <button
-            className={styles.iconBtn}
-            onClick={() => fileInputRef.current?.click()}
-            title="Import project JSON"
+            className={`${styles.tab} ${tab === 'elements' ? styles.tabActive : ''}`}
+            onClick={() => setTab('elements')}
           >
-            <Upload size={14} /> Import
+            Elements
           </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="application/json"
-            style={{ display: 'none' }}
-            onChange={handleImport}
-          />
+          <button
+            className={`${styles.tab} ${tab === 'loss' ? styles.tabActive : ''}`}
+            onClick={() => setTab('loss')}
+          >
+            Loss Budget
+          </button>
         </div>
-      </section>
 
-      {/* Workflow or location summary */}
-      {showWorkflow.includes(workflowStep) ? (
-        <section className={styles.section}>
-          <h4 className={styles.sectionTitle}>Setup Workflow</h4>
-          <WorkflowPanel design={design} step={workflowStep} onSetTool={handleWorkflowTool} />
-        </section>
-      ) : (
-        <section className={styles.section}>
-          <h4 className={styles.sectionTitle}>Project Location</h4>
-          {project.address && (
-            <div className={styles.locationRow}>
-              <span className={styles.locationIcon}>📍</span>
-              <span className={styles.locationText}>{project.address}</span>
+        <div className={styles.tabContent}>
+          {tab === 'workflow' && (
+            <WorkflowPanel
+              design={design}
+              step={design.workflowStep}
+              onSetTool={onSetTool}
+            />
+          )}
+
+          {tab === 'elements' && (
+            <div className={styles.elementsTab}>
+              {/* Stats */}
+              <div className={styles.statsGrid}>
+                <div className={styles.statCard}>
+                  <div className={styles.statValue}>{stats.nodeCount}</div>
+                  <div className={styles.statLabel}>Nodes</div>
+                </div>
+                <div className={styles.statCard}>
+                  <div className={styles.statValue}>{stats.cableCount}</div>
+                  <div className={styles.statLabel}>Cables</div>
+                </div>
+                <div className={styles.statCard}>
+                  <div className={styles.statValue}>{formatMeters(stats.totalLength)}</div>
+                  <div className={styles.statLabel}>Total Fiber</div>
+                </div>
+                <div className={styles.statCard}>
+                  <div className={styles.statValue}>{stats.areaCount}</div>
+                  <div className={styles.statLabel}>Areas</div>
+                </div>
+              </div>
+
+              {/* Nodes list */}
+              {project.nodes.length > 0 && (
+                <ElementSection title="Network Nodes" icon={<Radio size={13} />}>
+                  {project.nodes.map((node: NetworkNode) => (
+                    <ElementRow
+                      key={node.id}
+                      id={node.id}
+                      name={node.name}
+                      sub={node.type.toUpperCase() + (node.splitRatio ? ` · ${node.splitRatio}` : '')}
+                      selected={selectedId === node.id}
+                      editing={editingId === node.id}
+                      editName={editName}
+                      onEditNameChange={setEditName}
+                      onSelect={() => onSelect(node.id)}
+                      onStartEdit={() => startEdit(node.id, node.name)}
+                      onCommitEdit={() => {
+                        if (editingId) updateNode(editingId, { name: editName });
+                        setEditingId(null);
+                      }}
+                      onCancelEdit={cancelEdit}
+                      onDelete={() => deleteNode(node.id)}
+                    />
+                  ))}
+                </ElementSection>
+              )}
+
+              {/* Cables list */}
+              {project.cables.length > 0 && (
+                <ElementSection title="Fiber Cables" icon={<List size={13} />}>
+                  {project.cables.map((cable: FiberCable) => {
+                    const from = project.nodes.find((n) => n.id === cable.fromNodeId);
+                    const to = project.nodes.find((n) => n.id === cable.toNodeId);
+                    return (
+                      <ElementRow
+                        key={cable.id}
+                        id={cable.id}
+                        name={`${from?.name ?? '?'} → ${to?.name ?? '?'}`}
+                        sub={`${cable.cableType} · ${formatMeters(cable.length)} · ${cable.cores}F`}
+                        selected={selectedId === cable.id}
+                        editing={false}
+                        editName=''
+                        onEditNameChange={() => {}}
+                        onSelect={() => onSelect(cable.id)}
+                        onStartEdit={() => {}}
+                        onCommitEdit={() => {}}
+                        onCancelEdit={cancelEdit}
+                        onDelete={() => deleteCable(cable.id)}
+                      />
+                    );
+                  })}
+                </ElementSection>
+              )}
+
+              {/* Areas list */}
+              {project.areas.length > 0 && (
+                <ElementSection title="Service Areas" icon={<Settings size={13} />}>
+                  {project.areas.map((area: ServiceArea) => (
+                    <ElementRow
+                      key={area.id}
+                      id={area.id}
+                      name={area.name}
+                      sub={`${area.path.length} vertices`}
+                      selected={selectedId === area.id}
+                      editing={editingId === area.id}
+                      editName={editName}
+                      onEditNameChange={setEditName}
+                      onSelect={() => onSelect(area.id)}
+                      onStartEdit={() => startEdit(area.id, area.name)}
+                      onCommitEdit={() => setEditingId(null)}
+                      onCancelEdit={cancelEdit}
+                      onDelete={() => deleteArea(area.id)}
+                    />
+                  ))}
+                </ElementSection>
+              )}
+
+              {project.nodes.length === 0 && project.cables.length === 0 && project.areas.length === 0 && (
+                <div className={styles.empty}>No elements yet. Use the toolbar to place equipment.</div>
+              )}
             </div>
           )}
-          {project.telecomCenter && (
-            <div className={styles.locationRow}>
-              <span className={styles.locationIcon}>🏢</span>
-              <span className={styles.locationText}>{project.telecomCenter.name}</span>
-              <span className={styles.locationCoords}>
-                {project.telecomCenter.position.lat.toFixed(4)}, {project.telecomCenter.position.lng.toFixed(4)}
-              </span>
+
+          {tab === 'loss' && (
+            <LossBudgetPanel design={design} />
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className={styles.footer}>
+          {totalOnts > 0 && (
+            <div className={`${styles.feasibility} ${feasibleCount === totalOnts ? styles.feasibilityOk : styles.feasibilityWarn}`}>
+              {feasibleCount === totalOnts ? (
+                <><CheckCircle size={13} /> All {totalOnts} ONT{totalOnts > 1 ? 's' : ''} within budget</>
+              ) : (
+                <><AlertTriangle size={13} /> {totalOnts - feasibleCount}/{totalOnts} ONTs over budget</>
+              )}
             </div>
           )}
-          <div className={styles.locationRow}>
-            <span className={styles.locationIcon}>📐</span>
-            <span className={styles.locationText}>{project.areas.length} service area{project.areas.length !== 1 ? 's' : ''}</span>
-          </div>
-        </section>
-      )}
-
-      {/* Loss Budget */}
-      <section className={styles.section}>
-        <LossBudgetPanel design={design} />
-      </section>
-
-      {/* Stats */}
-      <section className={styles.section}>
-        <button className={styles.collapsibleHeader} onClick={() => setStatsExpanded((v) => !v)}>
-          <h4 className={styles.sectionTitle}>Network Statistics</h4>
-          {statsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        </button>
-        {statsExpanded && (
-          <div className={styles.stats}>
-            <Stat label="OLTs" value={stats.byType.olt} />
-            <Stat label="Splitters" value={stats.byType.splitter} />
-            <Stat label="Cabinets" value={stats.byType.cabinet} />
-            <Stat label="Closures" value={stats.byType.closure} />
-            <Stat label="Poles" value={stats.byType.pole} />
-            <Stat label="ONTs" value={stats.byType.ont} />
-            <Stat label="Cables" value={stats.cableCount} />
-            <Stat label="Total length" value={formatMeters(stats.totalLength)} />
-          </div>
-        )}
-      </section>
-
-      {/* Selected node inspector */}
-      {selectedNode && (
-        <section className={styles.section}>
-          <h4 className={styles.sectionTitle}>Selected · {selectedNode.type.toUpperCase()}</h4>
-          <label className={styles.field}>
-            <span>Name</span>
-            <input
-              className={styles.input}
-              value={selectedNode.name}
-              onChange={(e) => updateNode(selectedNode.id, { name: e.target.value })}
-            />
-          </label>
-          {selectedNode.type === 'splitter' && (
-            <label className={styles.field}>
-              <span>Split ratio</span>
-              <select
-                className={styles.input}
-                value={selectedNode.splitRatio ?? '1:8'}
-                onChange={(e) =>
-                  updateNode(selectedNode.id, { splitRatio: e.target.value as SplitterRatio })
-                }
-              >
-                {(['1:2', '1:4', '1:8', '1:16', '1:32', '1:64'] as SplitterRatio[]).map((r) => (
-                  <option key={r} value={r}>{r}</option>
-                ))}
-              </select>
-            </label>
-          )}
-          <label className={styles.field}>
-            <span>Insertion loss override (dB)</span>
-            <input
-              className={styles.input}
-              type="number"
-              step={0.1}
-              placeholder="auto"
-              value={selectedNode.lossDb ?? ''}
-              onChange={(e) => {
-                const v = e.target.value === '' ? undefined : parseFloat(e.target.value);
-                updateNode(selectedNode.id, { lossDb: Number.isNaN(v as number) ? undefined : v });
-              }}
-            />
-          </label>
-          <label className={styles.field}>
-            <span>Notes</span>
-            <textarea
-              className={styles.textarea}
-              value={selectedNode.notes ?? ''}
-              onChange={(e) => updateNode(selectedNode.id, { notes: e.target.value })}
-              rows={2}
-            />
-          </label>
-          <div className={styles.coords}>
-            {selectedNode.position.lat.toFixed(5)}, {selectedNode.position.lng.toFixed(5)}
-          </div>
-          <button
-            className={styles.dangerBtn}
-            onClick={() => {
-              deleteNode(selectedNode.id);
-              onSelect(null);
-            }}
-          >
-            <Trash2 size={14} /> Delete node
+          <button className={styles.previewBtn} onClick={() => setShowPreview(true)}>
+            <Eye size={14} /> Preview Report
           </button>
-        </section>
+        </div>
+      </div>
+
+      {showPreview && (
+        <PreviewModal design={design} onClose={() => setShowPreview(false)} />
       )}
-
-      {/* Selected cable inspector */}
-      {selectedCable && (
-        <section className={styles.section}>
-          <h4 className={styles.sectionTitle}>Selected · CABLE</h4>
-          <label className={styles.field}>
-            <span>Type</span>
-            <select
-              className={styles.input}
-              value={selectedCable.cableType}
-              onChange={(e) =>
-                updateCable(selectedCable.id, { cableType: e.target.value as typeof selectedCable.cableType })
-              }
-            >
-              <option value="feeder">Feeder</option>
-              <option value="distribution">Distribution</option>
-              <option value="drop">Drop</option>
-            </select>
-          </label>
-          <label className={styles.field}>
-            <span>Cores</span>
-            <input
-              className={styles.input}
-              type="number"
-              min={1}
-              max={288}
-              value={selectedCable.cores}
-              onChange={(e) =>
-                updateCable(selectedCable.id, { cores: parseInt(e.target.value || '0', 10) })
-              }
-            />
-          </label>
-          <label className={styles.field}>
-            <span>Attenuation override (dB/km)</span>
-            <input
-              className={styles.input}
-              type="number"
-              step={0.05}
-              placeholder="auto"
-              value={selectedCable.attenuationDbPerKm ?? ''}
-              onChange={(e) => {
-                const v = e.target.value === '' ? undefined : parseFloat(e.target.value);
-                updateCable(selectedCable.id, {
-                  attenuationDbPerKm: Number.isNaN(v as number) ? undefined : v,
-                });
-              }}
-            />
-          </label>
-          <div className={styles.coords}>Length: {formatMeters(selectedCable.length)}</div>
-          <button
-            className={styles.dangerBtn}
-            onClick={() => {
-              deleteCable(selectedCable.id);
-              onSelect(null);
-            }}
-          >
-            <Trash2 size={14} /> Delete cable
-          </button>
-        </section>
-      )}
-
-      {/* Selected area inspector */}
-      {selectedArea && (
-        <section className={styles.section}>
-          <h4 className={styles.sectionTitle}>Selected · SERVICE AREA</h4>
-          <div className={styles.coords}>{selectedArea.name}</div>
-          <div className={styles.coords}>{selectedArea.path.length} vertices</div>
-          <button
-            className={styles.dangerBtn}
-            onClick={() => {
-              deleteArea(selectedArea.id);
-              onSelect(null);
-            }}
-          >
-            <Trash2 size={14} /> Delete area
-          </button>
-        </section>
-      )}
-
-      {/* Node list */}
-      <section className={styles.section}>
-        <button className={styles.collapsibleHeader} onClick={() => setNodesExpanded((v) => !v)}>
-          <h4 className={styles.sectionTitle}>Nodes ({project.nodes.length})</h4>
-          {nodesExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        </button>
-        {nodesExpanded && (
-          <>
-            <input
-              className={styles.input}
-              placeholder="Search nodes…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <ul className={styles.list}>
-              {filteredNodes.map((n) => (
-                <li
-                  key={n.id}
-                  className={`${styles.listItem} ${selectedId === n.id ? styles.listItemActive : ''}`}
-                  onClick={() => {
-                    onSelect(n.id);
-                    setMapView(n.position, Math.max(project.mapZoom, 17));
-                  }}
-                >
-                  <span className={styles.nodeBadge} data-type={n.type}>{n.type.slice(0, 3).toUpperCase()}</span>
-                  <span>{n.name}</span>
-                </li>
-              ))}
-              {filteredNodes.length === 0 && <li className={styles.empty}>No nodes</li>}
-            </ul>
-          </>
-        )}
-      </section>
-
-      {/* Danger zone */}
-      <section className={styles.section}>
-        <button
-          className={styles.dangerBtn}
-          onClick={() => {
-            if (confirm('Clear all nodes, cables, areas, address and telecom center?')) clearAll();
-          }}
-        >
-          <Trash2 size={14} /> Clear entire design
-        </button>
-      </section>
-    </aside>
+    </>
   );
 }
 
-function Stat({ label, value }: { label: string; value: number | string }) {
+// ── Sub-components ──────────────────────────────────────────────────────────
+
+function ElementSection({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(true);
   return (
-    <div className={styles.statCell}>
-      <div className={styles.statValue}>{value}</div>
-      <div className={styles.statLabel}>{label}</div>
+    <div className={styles.section}>
+      <button className={styles.sectionHeader} onClick={() => setOpen((o) => !o)}>
+        {icon}
+        <span>{title}</span>
+        {open ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+      </button>
+      {open && <div className={styles.sectionBody}>{children}</div>}
+    </div>
+  );
+}
+
+type RowProps = {
+  id: string;
+  name: string;
+  sub: string;
+  selected: boolean;
+  editing: boolean;
+  editName: string;
+  onEditNameChange: (v: string) => void;
+  onSelect: () => void;
+  onStartEdit: () => void;
+  onCommitEdit: () => void;
+  onCancelEdit: () => void;
+  onDelete: () => void;
+};
+
+function ElementRow({
+  name, sub, selected, editing, editName,
+  onEditNameChange, onSelect, onStartEdit, onCommitEdit, onCancelEdit, onDelete,
+}: RowProps) {
+  return (
+    <div className={`${styles.elementRow} ${selected ? styles.elementRowSelected : ''}`} onClick={onSelect}>
+      <div className={styles.elementInfo}>
+        {editing ? (
+          <input
+            className={styles.inlineInput}
+            value={editName}
+            autoFocus
+            onChange={(e) => onEditNameChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') onCommitEdit();
+              if (e.key === 'Escape') onCancelEdit();
+            }}
+            onClick={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <span className={styles.elementName}>{name}</span>
+        )}
+        <span className={styles.elementSub}>{sub}</span>
+      </div>
+      <div className={styles.elementActions}>
+        {editing ? (
+          <>
+            <button onClick={(e) => { e.stopPropagation(); onCommitEdit(); }} title="Save"><Check size={12} /></button>
+            <button onClick={(e) => { e.stopPropagation(); onCancelEdit(); }} title="Cancel"><X size={12} /></button>
+          </>
+        ) : (
+          <button onClick={(e) => { e.stopPropagation(); onStartEdit(); }} title="Rename"><Edit3 size={12} /></button>
+        )}
+        <button
+          className={styles.deleteBtn}
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          title="Delete"
+        >
+          <Trash2 size={12} />
+        </button>
+      </div>
     </div>
   );
 }
