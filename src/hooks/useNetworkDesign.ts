@@ -5,23 +5,26 @@ import type {
   ElementType,
   FiberCable,
   LatLng,
+  LossBudgetSettings,
   NetworkNode,
   Project,
   ServiceArea,
   SplitterRatio,
+  WorkflowStep,
 } from '@/types';
 import { haversineLength } from '@/utils/geo';
+import { computeAllOntReports, DEFAULT_LOSS_BUDGET } from '@/utils/lossBudget';
 
-const STORAGE_KEY = 'ftth-designer-project-v1';
+const STORAGE_KEY = 'ftth-designer-project-v2';
 
 const DEFAULT_PROJECT: Project = {
   name: 'Untitled FTTH Project',
   nodes: [],
   cables: [],
   areas: [],
-  // Default center: London
   mapCenter: { lat: 51.5074, lng: -0.1278 },
   mapZoom: 15,
+  lossBudget: DEFAULT_LOSS_BUDGET,
 };
 
 function uid() {
@@ -42,6 +45,13 @@ function defaultNameFor(type: ElementType, count: number) {
 
 export function useNetworkDesign() {
   const [project, setProject] = useLocalStorage<Project>(STORAGE_KEY, DEFAULT_PROJECT);
+
+  // Migrate older saved projects that pre-date the loss budget feature.
+  const safeProject: Project = {
+    ...project,
+    lossBudget: project.lossBudget ?? DEFAULT_LOSS_BUDGET,
+    areas: project.areas ?? [],
+  };
 
   const addNode = useCallback(
     (type: ElementType, position: LatLng) => {
@@ -164,13 +174,73 @@ export function useNetworkDesign() {
     [setProject]
   );
 
+  const setAddress = useCallback(
+    (address: string, location?: LatLng) => {
+      setProject((p) => ({
+        ...p,
+        address,
+        addressLocation: location ?? p.addressLocation,
+      }));
+      if (location) setMapView(location, 17);
+    },
+    [setProject, setMapView]
+  );
+
+  const setTelecomCenter = useCallback(
+    (name: string, position: LatLng) => {
+      setProject((p) => {
+        // Either update an existing OLT node tagged as telecom center, or add one.
+        const existingOlt = p.nodes.find((n) => n.type === 'olt');
+        let nodes = p.nodes;
+        if (existingOlt) {
+          nodes = p.nodes.map((n) =>
+            n.id === existingOlt.id ? { ...n, name, position } : n
+          );
+        } else {
+          const oltNode: NetworkNode = {
+            id: uid(),
+            type: 'olt',
+            name,
+            position,
+            createdAt: Date.now(),
+          };
+          nodes = [...p.nodes, oltNode];
+        }
+        return {
+          ...p,
+          telecomCenter: { name, position },
+          nodes,
+        };
+      });
+    },
+    [setProject]
+  );
+
+  const updateLossBudget = useCallback(
+    (patch: Partial<LossBudgetSettings>) => {
+      setProject((p) => ({
+        ...p,
+        lossBudget: { ...(p.lossBudget ?? DEFAULT_LOSS_BUDGET), ...patch },
+      }));
+    },
+    [setProject]
+  );
+
   const clearAll = useCallback(() => {
-    setProject((p) => ({ ...p, nodes: [], cables: [], areas: [] }));
+    setProject((p) => ({
+      ...p,
+      nodes: [],
+      cables: [],
+      areas: [],
+      telecomCenter: undefined,
+      address: undefined,
+      addressLocation: undefined,
+    }));
   }, [setProject]);
 
   const exportJSON = useCallback(() => {
-    return JSON.stringify(project, null, 2);
-  }, [project]);
+    return JSON.stringify(safeProject, null, 2);
+  }, [safeProject]);
 
   const importJSON = useCallback(
     (json: string) => {
@@ -181,6 +251,7 @@ export function useNetworkDesign() {
             ...DEFAULT_PROJECT,
             ...parsed,
             areas: parsed.areas ?? [],
+            lossBudget: parsed.lossBudget ?? DEFAULT_LOSS_BUDGET,
           });
           return true;
         }
@@ -192,8 +263,15 @@ export function useNetworkDesign() {
     [setProject]
   );
 
+  const workflowStep: WorkflowStep = useMemo(() => {
+    if (!safeProject.address || !safeProject.addressLocation) return 'address';
+    if (!safeProject.telecomCenter) return 'telecom-center';
+    if (safeProject.areas.length === 0) return 'service-area';
+    return 'design';
+  }, [safeProject.address, safeProject.addressLocation, safeProject.telecomCenter, safeProject.areas.length]);
+
   const stats = useMemo(() => {
-    const totalLength = project.cables.reduce((sum, c) => sum + c.length, 0);
+    const totalLength = safeProject.cables.reduce((sum, c) => sum + c.length, 0);
     const byType: Record<ElementType, number> = {
       olt: 0,
       splitter: 0,
@@ -202,21 +280,25 @@ export function useNetworkDesign() {
       pole: 0,
       ont: 0,
     };
-    project.nodes.forEach((n) => {
+    safeProject.nodes.forEach((n) => {
       byType[n.type] += 1;
     });
     return {
       totalLength,
-      nodeCount: project.nodes.length,
-      cableCount: project.cables.length,
-      areaCount: project.areas.length,
+      nodeCount: safeProject.nodes.length,
+      cableCount: safeProject.cables.length,
+      areaCount: safeProject.areas.length,
       byType,
     };
-  }, [project]);
+  }, [safeProject]);
+
+  const lossReports = useMemo(() => computeAllOntReports(safeProject), [safeProject]);
 
   return {
-    project,
+    project: safeProject,
     stats,
+    workflowStep,
+    lossReports,
     addNode,
     updateNode,
     deleteNode,
@@ -228,6 +310,9 @@ export function useNetworkDesign() {
     setSplitRatio,
     setMapView,
     renameProject,
+    setAddress,
+    setTelecomCenter,
+    updateLossBudget,
     clearAll,
     exportJSON,
     importJSON,

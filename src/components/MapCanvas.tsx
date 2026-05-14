@@ -20,19 +20,16 @@ const TILE_URL = (x: number, y: number, z: number) =>
   `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
 
 export default function MapCanvas({ design, tool, selectedId, onSelect, onToolHandled }: Props) {
-  const { project, addNode, addCable, addArea, setMapView, updateNode } = design;
+  const { project, addNode, addCable, addArea, setMapView, setTelecomCenter, updateNode } = design;
   const containerRef = useRef<HTMLDivElement>(null);
   const [viewport, setViewport] = useState({ width: 800, height: 600 });
   const [dragging, setDragging] = useState(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number; center: LatLng } | null>(null);
 
-  // In-progress cable / area drawing
   const [cableFrom, setCableFrom] = useState<string | null>(null);
   const [cablePath, setCablePath] = useState<LatLng[]>([]);
   const [areaPath, setAreaPath] = useState<LatLng[]>([]);
   const [cursorLatLng, setCursorLatLng] = useState<LatLng | null>(null);
-
-  // Dragging an existing node
   const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -48,7 +45,6 @@ export default function MapCanvas({ design, tool, selectedId, onSelect, onToolHa
     return () => ro.disconnect();
   }, []);
 
-  // Reset in-progress drawings when tool changes
   useEffect(() => {
     setCableFrom(null);
     setCablePath([]);
@@ -67,7 +63,6 @@ export default function MapCanvas({ design, tool, selectedId, onSelect, onToolHa
     [center, zoom, viewport]
   );
 
-  // Compute visible tile range
   const tileZ = Math.round(zoom);
   const tileScale = Math.pow(2, zoom - tileZ);
   const numTiles = Math.pow(2, tileZ);
@@ -102,7 +97,6 @@ export default function MapCanvas({ design, tool, selectedId, onSelect, onToolHa
     const before = toLatLng({ x: mx, y: my });
     const delta = e.deltaY > 0 ? -1 : 1;
     const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom + delta * 0.5));
-    // Re-center so the point under cursor stays put
     const tmpCenter = center;
     const afterPixel = latLngToPixel(before, tmpCenter, newZoom, viewport);
     const dx = afterPixel.x - mx;
@@ -160,6 +154,13 @@ export default function MapCanvas({ design, tool, selectedId, onSelect, onToolHa
     const my = e.clientY - rect.top;
     const ll = toLatLng({ x: mx, y: my });
 
+    if (tool === 'place-telecom-center') {
+      const name = project.telecomCenter?.name || 'Central Office';
+      setTelecomCenter(name, ll);
+      onToolHandled();
+      return;
+    }
+
     if (tool.startsWith('place-')) {
       const type = tool.replace('place-', '') as NetworkNode['type'];
       addNode(type, ll);
@@ -168,7 +169,6 @@ export default function MapCanvas({ design, tool, selectedId, onSelect, onToolHa
     }
 
     if (tool === 'draw-cable') {
-      // Add intermediate vertex if a cable is in progress
       if (cableFrom) {
         setCablePath((p) => [...p, ll]);
       }
@@ -227,7 +227,6 @@ export default function MapCanvas({ design, tool, selectedId, onSelect, onToolHa
     setAreaPath([]);
   };
 
-  // Keyboard shortcuts
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') cancelDraw();
@@ -238,7 +237,6 @@ export default function MapCanvas({ design, tool, selectedId, onSelect, onToolHa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tool, areaPath]);
 
-  // Build SVG path strings
   const cablePolylines = project.cables.map((c) => {
     const pts = c.path.map(toPixel).map((p) => `${p.x},${p.y}`).join(' ');
     const isSelected = selectedId === c.id;
@@ -282,7 +280,6 @@ export default function MapCanvas({ design, tool, selectedId, onSelect, onToolHa
     );
   });
 
-  // In-progress cable preview
   let cablePreview: React.ReactNode = null;
   if (tool === 'draw-cable' && cableFrom && cablePath.length > 0) {
     const preview = [...cablePath];
@@ -299,7 +296,6 @@ export default function MapCanvas({ design, tool, selectedId, onSelect, onToolHa
     );
   }
 
-  // In-progress area preview
   let areaPreview: React.ReactNode = null;
   if (tool === 'draw-area' && areaPath.length > 0) {
     const preview = [...areaPath];
@@ -313,6 +309,21 @@ export default function MapCanvas({ design, tool, selectedId, onSelect, onToolHa
         strokeDasharray="4 4"
         fill="rgba(99,102,241,0.1)"
       />
+    );
+  }
+
+  // Address marker
+  let addressMarker: React.ReactNode = null;
+  if (project.addressLocation) {
+    const p = toPixel(project.addressLocation);
+    addressMarker = (
+      <div
+        className={styles.addressPin}
+        style={{ left: p.x, top: p.y }}
+        title={project.address ?? 'Project address'}
+      >
+        📍
+      </div>
     );
   }
 
@@ -337,7 +348,6 @@ export default function MapCanvas({ design, tool, selectedId, onSelect, onToolHa
       onMouseLeave={handleMouseUp}
       onClick={handleClick}
     >
-      {/* Tile layer */}
       <div className={styles.tileLayer}>
         {tiles.map((t) => (
           <img
@@ -358,7 +368,6 @@ export default function MapCanvas({ design, tool, selectedId, onSelect, onToolHa
         ))}
       </div>
 
-      {/* SVG overlay for cables / areas */}
       <svg className={styles.svg} width={viewport.width} height={viewport.height}>
         {areaPolygons}
         {areaPreview}
@@ -366,8 +375,8 @@ export default function MapCanvas({ design, tool, selectedId, onSelect, onToolHa
         {cablePreview}
       </svg>
 
-      {/* Node markers */}
       <div className={styles.markers}>
+        {addressMarker}
         {project.nodes.map((node) => {
           const px = toPixel(node.position);
           return (
@@ -385,7 +394,6 @@ export default function MapCanvas({ design, tool, selectedId, onSelect, onToolHa
         })}
       </div>
 
-      {/* Drawing helpers */}
       {tool === 'draw-area' && areaPath.length >= 3 && (
         <button className={styles.finishBtn} onClick={finishArea}>
           Finish area (Enter)
@@ -397,8 +405,10 @@ export default function MapCanvas({ design, tool, selectedId, onSelect, onToolHa
       {tool === 'draw-area' && (
         <div className={styles.hint}>Click to add polygon vertices · Enter to finish · Esc to cancel</div>
       )}
+      {tool === 'place-telecom-center' && (
+        <div className={styles.hint}>Click on the map to place the telecom center / OLT</div>
+      )}
 
-      {/* Coords + attribution */}
       {cursorLatLng && (
         <div className={styles.coords}>
           {cursorLatLng.lat.toFixed(5)}, {cursorLatLng.lng.toFixed(5)} · z{zoom.toFixed(1)}

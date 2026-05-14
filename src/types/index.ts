@@ -16,7 +16,7 @@ export type LatLng = {
   lng: number;
 };
 
-export type NodeType =
+export type ElementType =
   | 'olt'
   | 'splitter'
   | 'cabinet'
@@ -24,21 +24,26 @@ export type NodeType =
   | 'pole'
   | 'ont';
 
+// Backwards-compat alias
+export type NodeType = ElementType;
+
 export type SplitterRatio = '1:2' | '1:4' | '1:8' | '1:16' | '1:32' | '1:64';
 
 export type NetworkNode = {
   id: string;
-  type: NodeType;
+  type: ElementType;
   name: string;
   position: LatLng;
   notes?: string;
   splitRatio?: SplitterRatio;
+  // Optional per-component loss override (dB). If not set, defaults are used.
+  lossDb?: number;
   createdAt: number;
 };
 
 export type CableType = 'feeder' | 'distribution' | 'drop';
 
-export type Cable = {
+export type FiberCable = {
   id: string;
   fromNodeId: string;
   toNodeId: string;
@@ -46,8 +51,13 @@ export type Cable = {
   cableType: CableType;
   cores: number;
   length: number; // meters
+  // Optional per-cable attenuation override (dB/km). If not set, defaults by type.
+  attenuationDbPerKm?: number;
   createdAt: number;
 };
+
+// Backwards-compat alias
+export type Cable = FiberCable;
 
 export type ServiceArea = {
   id: string;
@@ -56,16 +66,46 @@ export type ServiceArea = {
   createdAt: number;
 };
 
+// Wavelength used for loss budget calculations
+export type Wavelength = 1310 | 1490 | 1550;
+
+export type LossBudgetSettings = {
+  // Transmit power of OLT (dBm)
+  txPowerDbm: number;
+  // Minimum receiver sensitivity at ONT (dBm)
+  rxSensitivityDbm: number;
+  // Safety margin (dB) reserved for ageing, repairs, etc.
+  safetyMarginDb: number;
+  // Wavelength used for attenuation calculation
+  wavelengthNm: Wavelength;
+  // Per-event losses (dB)
+  spliceLossDb: number;       // per fusion splice
+  connectorLossDb: number;    // per connector pair
+  // Default per-cable attenuation by type (dB/km)
+  attenuationDbPerKm: {
+    feeder: number;
+    distribution: number;
+    drop: number;
+  };
+};
+
 export type Project = {
-  id: string;
   name: string;
   mapCenter: LatLng;
   mapZoom: number;
   nodes: NetworkNode[];
-  cables: Cable[];
+  cables: FiberCable[];
   areas: ServiceArea[];
-  createdAt: number;
-  updatedAt: number;
+  // Customer address (street/postcode) — starting point of the design workflow
+  address?: string;
+  addressLocation?: LatLng;
+  // Telecom center / data center (typically where the OLT lives)
+  telecomCenter?: {
+    name: string;
+    position: LatLng;
+  };
+  // Loss budget configuration for the design
+  lossBudget: LossBudgetSettings;
 };
 
 export type Tool =
@@ -77,4 +117,36 @@ export type Tool =
   | 'place-pole'
   | 'place-ont'
   | 'draw-cable'
-  | 'draw-area';
+  | 'draw-area'
+  | 'place-telecom-center';
+
+// ---- Workflow ----
+
+export type WorkflowStep = 'address' | 'telecom-center' | 'service-area' | 'design';
+
+// ---- Loss budget result ----
+
+export type ComponentLossEntry = {
+  label: string;
+  detail?: string;
+  lossDb: number;
+};
+
+export type PathLossReport = {
+  ontId: string;
+  ontName: string;
+  hops: number;
+  totalLengthM: number;
+  spliceCount: number;
+  connectorCount: number;
+  splitterLossDb: number;
+  fiberLossDb: number;
+  spliceLossDb: number;
+  connectorLossDb: number;
+  componentLossDb: number; // total of all components, before margin
+  totalLossDb: number;     // componentLossDb + safetyMargin
+  rxPowerDbm: number;      // tx - totalLossDb
+  margin: number;          // rxPower - rxSensitivity
+  feasible: boolean;
+  breakdown: ComponentLossEntry[];
+};

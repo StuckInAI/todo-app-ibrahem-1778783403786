@@ -1,20 +1,24 @@
 import { useMemo, useRef, useState } from 'react';
-import { Download, Search, Trash2, Upload } from 'lucide-react';
-import type { SplitterRatio } from '@/types';
+import { Download, Trash2, Upload } from 'lucide-react';
+import type { SplitterRatio, Tool, WorkflowStep } from '@/types';
 import { useNetworkDesign } from '@/hooks/useNetworkDesign';
 import { formatMeters } from '@/utils/geo';
+import WorkflowPanel from '@/components/WorkflowPanel';
+import LossBudgetPanel from '@/components/LossBudgetPanel';
 import styles from './SidePanel.module.css';
 
 type Props = {
   design: ReturnType<typeof useNetworkDesign>;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
+  onSetTool: (tool: Tool) => void;
 };
 
-export default function SidePanel({ design, selectedId, onSelect }: Props) {
+export default function SidePanel({ design, selectedId, onSelect, onSetTool }: Props) {
   const {
     project,
     stats,
+    workflowStep,
     renameProject,
     updateNode,
     deleteNode,
@@ -28,9 +32,6 @@ export default function SidePanel({ design, selectedId, onSelect }: Props) {
   } = design;
 
   const [search, setSearch] = useState('');
-  const [geoQuery, setGeoQuery] = useState('');
-  const [geoLoading, setGeoLoading] = useState(false);
-  const [geoError, setGeoError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const selectedNode = useMemo(
@@ -53,30 +54,6 @@ export default function SidePanel({ design, selectedId, onSelect }: Props) {
     );
   }, [project.nodes, search]);
 
-  const doSearchLocation = async () => {
-    if (!geoQuery.trim()) return;
-    setGeoLoading(true);
-    setGeoError(null);
-    try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(geoQuery)}`,
-        { headers: { Accept: 'application/json' } }
-      );
-      const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        const lat = parseFloat(data[0].lat);
-        const lng = parseFloat(data[0].lon);
-        setMapView({ lat, lng }, 16);
-      } else {
-        setGeoError('No results found');
-      }
-    } catch {
-      setGeoError('Search failed');
-    } finally {
-      setGeoLoading(false);
-    }
-  };
-
   const handleExport = () => {
     const blob = new Blob([exportJSON()], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -98,6 +75,13 @@ export default function SidePanel({ design, selectedId, onSelect }: Props) {
     reader.readAsText(file);
     e.target.value = '';
   };
+
+  const handleWorkflowTool = (t: 'place-telecom-center' | 'draw-area' | 'select') => {
+    onSetTool(t as Tool);
+  };
+
+  // Show workflow until the user has reached the design step (or always show it collapsed)
+  const showWorkflow: WorkflowStep[] = ['address', 'telecom-center', 'service-area'];
 
   return (
     <aside className={styles.panel}>
@@ -129,22 +113,23 @@ export default function SidePanel({ design, selectedId, onSelect }: Props) {
         </div>
       </section>
 
-      <section className={styles.section}>
-        <h4 className={styles.sectionTitle}>Find Location</h4>
-        <div className={styles.searchRow}>
-          <input
-            className={styles.input}
-            placeholder="Address, city, postcode…"
-            value={geoQuery}
-            onChange={(e) => setGeoQuery(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && doSearchLocation()}
-          />
-          <button className={styles.searchBtn} onClick={doSearchLocation} disabled={geoLoading}>
-            <Search size={14} />
-          </button>
-        </div>
-        {geoError && <div className={styles.error}>{geoError}</div>}
-      </section>
+      {showWorkflow.includes(workflowStep) ? (
+        <section className={styles.section}>
+          <h4 className={styles.sectionTitle}>Setup Workflow</h4>
+          <WorkflowPanel design={design} step={workflowStep} onSetTool={handleWorkflowTool} />
+        </section>
+      ) : (
+        <section className={styles.section}>
+          <h4 className={styles.sectionTitle}>Project Location</h4>
+          {project.address && <div className={styles.coords}>📍 {project.address}</div>}
+          {project.telecomCenter && (
+            <div className={styles.coords}>🏢 {project.telecomCenter.name}</div>
+          )}
+          <div className={styles.coords}>📐 {project.areas.length} service area(s)</div>
+        </section>
+      )}
+
+      <LossBudgetPanel design={design} />
 
       <section className={styles.section}>
         <h4 className={styles.sectionTitle}>Network Statistics</h4>
@@ -187,6 +172,20 @@ export default function SidePanel({ design, selectedId, onSelect }: Props) {
               </select>
             </label>
           )}
+          <label className={styles.field}>
+            <span>Insertion loss override (dB)</span>
+            <input
+              className={styles.input}
+              type="number"
+              step={0.1}
+              placeholder="auto"
+              value={selectedNode.lossDb ?? ''}
+              onChange={(e) => {
+                const v = e.target.value === '' ? undefined : parseFloat(e.target.value);
+                updateNode(selectedNode.id, { lossDb: Number.isNaN(v as number) ? undefined : v });
+              }}
+            />
+          </label>
           <label className={styles.field}>
             <span>Notes</span>
             <textarea
@@ -239,6 +238,22 @@ export default function SidePanel({ design, selectedId, onSelect }: Props) {
               onChange={(e) =>
                 updateCable(selectedCable.id, { cores: parseInt(e.target.value || '0', 10) })
               }
+            />
+          </label>
+          <label className={styles.field}>
+            <span>Attenuation override (dB/km)</span>
+            <input
+              className={styles.input}
+              type="number"
+              step={0.05}
+              placeholder="auto"
+              value={selectedCable.attenuationDbPerKm ?? ''}
+              onChange={(e) => {
+                const v = e.target.value === '' ? undefined : parseFloat(e.target.value);
+                updateCable(selectedCable.id, {
+                  attenuationDbPerKm: Number.isNaN(v as number) ? undefined : v,
+                });
+              }}
             />
           </label>
           <div className={styles.coords}>Length: {formatMeters(selectedCable.length)}</div>
@@ -301,7 +316,7 @@ export default function SidePanel({ design, selectedId, onSelect }: Props) {
         <button
           className={styles.dangerBtn}
           onClick={() => {
-            if (confirm('Clear all nodes, cables and areas?')) clearAll();
+            if (confirm('Clear all nodes, cables, areas, address and telecom center?')) clearAll();
           }}
         >
           <Trash2 size={14} /> Clear entire design
