@@ -1,1 +1,13 @@
-No build error log was provided. Without an actual error message I cannot determine what to fix. The provided source files appear consistent: package.json declares react/react-dom/react-router-dom/clsx/lucide-react and TS/Vite devDeps, tsconfig paths (assumed) map '@/*' to 'src/*', and all referenced files (src/types, src/hooks/useNetworkDesign, src/utils/mercator, src/utils/geo, src/pages/DesignerPage) exist in the file tree. Please re-run the build and share the actual error output so I can target the fix.
+No build error log was provided. Without the actual error output (e.g., TypeScript diagnostics, missing module messages, or Vite build failures), I cannot make targeted fixes. Please re-run the build and supply the stderr/stdout from `npm run build` so I can identify the failing files and produce the minimal patch.
+
+A quick visual scan of the supplied files did not reveal an obvious build-breaking issue:
+- package.json deps look consistent with the lockfile.
+- tsconfig paths, vite config, and `@/` alias usage appear normal (the @ alias must be configured in vite.config.ts and tsconfig.app.json — please verify those files include the alias).
+- All referenced modules (`@/types`, `@/pages/DesignerPage`, `@/hooks/useNetworkDesign`, `@/utils/mercator`, `@/utils/geo`, `@/components/NodeMarker`) exist in the file tree.
+- Components are written for React 19 + TS 5.7 and should compile.
+
+If the failure is the `@/` path alias not resolving, ensure:
+  - `vite.config.ts` has `resolve: { alias: { '@': path.resolve(__dirname, './src') } }`
+  - `tsconfig.app.json` has `"baseUrl": "."` and `"paths": { "@/*": ["src/*"] }`
+
+Resend the actual error log and I will produce a precise fix.
