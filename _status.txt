@@ -1,1 +1,1 @@
-no build error log provided
+No build error log was provided. Without a concrete error message to diagnose, no source files were modified. If the build is indeed failing, please re-run the build and share the error output so the specific issue can be identified and fixed.
