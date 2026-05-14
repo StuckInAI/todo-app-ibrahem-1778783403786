@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import type { Tool } from '@/types';
 import { useNetworkDesign } from '@/hooks/useNetworkDesign';
+import type { Tool } from '@/types';
 import MapCanvas from '@/components/MapCanvas';
-import Toolbar from '@/components/Toolbar';
 import SidePanel from '@/components/SidePanel';
+import Toolbar from '@/components/Toolbar';
 import WorkflowStepper from '@/components/WorkflowStepper';
 import styles from './DesignerPage.module.css';
 
@@ -18,13 +18,14 @@ export default function DesignerPage() {
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <h1 className={styles.title}>FTTH Network Designer</h1>
-        <WorkflowStepper step={design.workflowStep} />
-      </header>
+      <div className={styles.topBar}>
+        <WorkflowStepper currentStep={design.workflowStep} />
+      </div>
       <div className={styles.body}>
-        <Toolbar tool={tool} onToolChange={setTool} />
-        <main className={styles.main}>
+        <div className={styles.toolbarWrap}>
+          <Toolbar tool={tool} onChange={setTool} />
+        </div>
+        <div className={styles.mapWrap}>
           <MapCanvas
             design={design}
             tool={tool}
@@ -32,7 +33,7 @@ export default function DesignerPage() {
             onSelect={setSelectedId}
             onToolHandled={handleToolHandled}
           />
-        </main>
+        </div>
         <SidePanel
           design={design}
           selectedId={selectedId}
