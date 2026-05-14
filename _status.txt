@@ -1,1 +1,2 @@
-No build error detected. Project files appear valid.
+OK
+No build errors detected. Build log was empty.
