@@ -1,1 +1,1 @@
-Build log is empty. No errors detected; nothing to fix.
+no build error log provided
